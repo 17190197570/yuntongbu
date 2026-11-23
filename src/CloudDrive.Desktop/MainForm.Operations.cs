@@ -62,7 +62,7 @@ public sealed partial class MainForm
             using var dialog = new Form { Text = "脱敏诊断预览 · 不导出原始日志或路径", Width = 900, Height = 700, StartPosition = FormStartPosition.CenterParent };
             var preview = new TextBox { Multiline = true, ReadOnly = true, Dock = DockStyle.Fill, ScrollBars = ScrollBars.Both, Text = ProductDiagnostics.Render(report) };
             var export = Button("导出所见报告", (_, _) => { productMessage.Text = ProductDiagnostics.Export(report, Path.Combine(ProductEnvironment.DataRoot, "Diagnostics")); dialog.Close(); }); export.Dock = DockStyle.Bottom;
-            dialog.Controls.Add(preview); dialog.Controls.Add(export); dialog.ShowDialog(this);
+            dialog.Controls.Add(preview); dialog.Controls.Add(export); ApplyProductTheme(dialog); dialog.ShowDialog(this);
         });
     }
     private async Task AssessUninstall()
@@ -76,14 +76,18 @@ public sealed partial class MainForm
     }
     private void EditProductSettings()
     {
+        using var dialog = CreateProductSettingsDialog(); dialog.ShowDialog(this);
+    }
+    private Form CreateProductSettingsDialog()
+    {
         var settings = smoke ? new ProductSettings() : ProductSettings.Load();
-        using var dialog = new Form { Text = "产品设置", Width = 720, Height = 610, StartPosition = FormStartPosition.CenterParent };
+        var dialog = new Form { Text = "产品设置", Width = 760, Height = 650, MinimumSize = new(720, 610), StartPosition = FormStartPosition.CenterParent };
         var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoScroll = true, Padding = new(16) }; table.ColumnStyles.Add(new(SizeType.Absolute, 210)); table.ColumnStyles.Add(new(SizeType.Percent, 100));
         var fields = new Dictionary<string, TextBox>();
         var values = new[] { ("更新地址（HTTPS）", settings.UpdateManifestUrl ?? ""), ("更新渠道 stable/preview", settings.UpdateChannel), ("更新检查间隔（小时）", settings.UpdateHours.ToString()), ("自动备份间隔（小时）", settings.BackupHours.ToString()), ("自动备份保留份数", settings.BackupKeep.ToString()), ("日志保留天数", settings.LogDays.ToString()), ("单日志文件 MiB", settings.LogFileMiB.ToString()), ("日志级别", settings.LogLevel) };
         int row = 0;
         var updates = new CheckBox { Text = "启用启动及周期更新检查（需可信发布配置）", Checked = settings.CheckUpdates, AutoSize = true }; table.Controls.Add(updates, 0, row++); table.SetColumnSpan(updates, 2);
-        foreach (var value in values) { table.RowStyles.Add(new(SizeType.Absolute, 45)); var box = new TextBox { Text = value.Item2, Dock = DockStyle.Fill }; fields[value.Item1] = box; table.Controls.Add(new Label { Text = value.Item1, AutoSize = true }, 0, row); table.Controls.Add(box, 1, row++); }
+        foreach (var value in values) { table.RowStyles.Add(new(SizeType.Absolute, 45)); var box = new TextBox { Text = value.Item2, Dock = DockStyle.Fill }; fields[value.Item1] = box; table.Controls.Add(new Label { Text = value.Item1, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row); table.Controls.Add(new InputSurface(box) { Dock = DockStyle.Top }, 1, row++); }
         table.Controls.Add(Button("保存", (_, _) =>
         {
             try
@@ -93,6 +97,6 @@ public sealed partial class MainForm
             }
             catch (Exception e) { MessageBox.Show(dialog, e.Message, "设置未保存"); }
         }), 1, row);
-        dialog.Controls.Add(table); dialog.ShowDialog(this);
+        dialog.Controls.Add(table); ApplyProductTheme(dialog); return dialog;
     }
 }

@@ -48,6 +48,13 @@ jobs:
             & pwsh -NoProfile -File (Join-Path $PWD "scripts/$suite.ps1") 2>&1 | Tee-Object -FilePath (Join-Path $validation "$suite.log")
             if ($LASTEXITCODE -ne 0) { throw "Fixture suite failed: $suite" }
           }
+      - name: Run desktop fixture smoke
+        run: |
+          $validation = Join-Path $PWD 'artifacts/validation/public-ci'
+          & dotnet (Join-Path $PWD 'artifacts/bin/CloudDrive.Desktop.dll') --smoke 2>&1 | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke.log')
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop fixture smoke failed.' }
+          if (Test-Path (Join-Path $PWD 'artifacts/bin/desktop-smoke-error.txt')) { throw 'Desktop fixture smoke reported an error.' }
+          Get-Content (Join-Path $PWD 'artifacts/bin/design-smoke/result.txt') | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke.log') -Append
       - name: Upload fixture validation logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

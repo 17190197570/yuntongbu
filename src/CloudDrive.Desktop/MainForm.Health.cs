@@ -20,7 +20,7 @@ public sealed partial class MainForm
     private static DataGridView HealthGrid() => new() { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false };
     private void BuildHealthCenter(TabPage page)
     {
-        var tabs = new TabControl { Dock = DockStyle.Fill }; var modules = new TabPage("模块与依据"); var incidents = new TabPage("异常与恢复"); var detail = new TabPage("详情及历史"); tabs.TabPages.AddRange([modules, incidents, detail]);
+        var tabs = new SectionTabs { Dock = DockStyle.Fill }; var modules = new TabPage("模块与依据"); var incidents = new TabPage("异常与恢复"); var detail = new TabPage("详情及历史"); tabs.TabPages.AddRange([modules, incidents, detail]);
         modules.Controls.Add(healthModules); incidents.Controls.Add(healthIncidents); detail.Controls.Add(healthDetail);
         foreach (string name in new[] { "模块", "状态", "检测时间", "耗时ms", "诊断代码", "结论" }) healthModules.Columns.Add(name, name);
         foreach (string name in new[] { "模块", "等级", "状态", "最近发生", "次数", "原因" }) healthIncidents.Columns.Add(name, name);
@@ -101,7 +101,7 @@ public sealed partial class MainForm
             using var picker = new SaveFileDialog { Filter = "JSON|*.json|HTML|*.html|ZIP诊断包|*.zip", FileName = "CloudDriveLite-Health-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"), AddExtension = true };
             if (picker.ShowDialog(dialog) != DialogResult.OK) return;
             try { healthDetail.Text = HealthReports.Export(preview, picker.FileName); dialog.Close(); } catch (Exception e) { MessageBox.Show(dialog, e.Message, "诊断导出未完成"); }
-        }); export.Dock = DockStyle.Bottom; dialog.Controls.Add(export); dialog.ShowDialog(this);
+        }); export.Dock = DockStyle.Bottom; dialog.Controls.Add(export); ApplyProductTheme(dialog); dialog.ShowDialog(this);
     }
     private async Task DiagnoseHealthFile()
     {
@@ -109,12 +109,16 @@ public sealed partial class MainForm
         var path = new TextBox { Dock = DockStyle.Top, PlaceholderText = "相对于当前映射本地文件夹的路径，例如 资料\\说明.txt" };
         dialog.Controls.Add(new Label { Dock = DockStyle.Top, Height = 55, Text = "先在文件夹映射中选中已保存的映射。仅检查本地元数据、Provider、映射、归档路由与远端版本只读打开。" });
         dialog.Controls.Add(path); var check = Button("检查", (_, _) => { dialog.DialogResult = DialogResult.OK; dialog.Close(); }); check.Dock = DockStyle.Bottom; dialog.Controls.Add(check);
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        ApplyProductTheme(dialog); if (dialog.ShowDialog(this) != DialogResult.OK) return;
         await PerformAsync(async ct => { var c = Saved(); var reply = await ManagementClient.SendAsync(new("health-diagnose-file", ConnectionId: c.Id, RelativePath: Paths.Relative(path.Text)), ct, timeoutSeconds: 18); if (!reply.Success) throw new IOException(reply.Message); lastFileDiagnosis = reply.Diagnosis; healthDetail.Text = JsonSerializer.Serialize(reply.Diagnosis, new JsonSerializerOptions { WriteIndented = true }); MessageBox.Show(this, healthDetail.Text, "文件诊断依据 · 完整结果见详情及历史"); });
     }
     private void EditHealthSettings()
     {
-        using var dialog = new Form { Text = "健康检查配置", Width = 1000, Height = 620, StartPosition = FormStartPosition.CenterParent };
+        using var dialog = CreateHealthSettingsDialog(); dialog.ShowDialog(this);
+    }
+    private Form CreateHealthSettingsDialog()
+    {
+        var dialog = new Form { Text = "健康检查配置", Width = 1000, Height = 620, StartPosition = FormStartPosition.CenterParent };
         var grid = new DataGridView { Dock = DockStyle.Fill, AllowUserToAddRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, RowHeadersVisible = false };
         grid.Columns.Add("Module", "模块"); grid.Columns[0].ReadOnly = true; grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Enabled", HeaderText = "启用" });
         foreach (string name in new[] { "间隔秒", "超时秒", "警告阈值秒", "严重阈值秒" }) grid.Columns.Add(name, name);
@@ -130,6 +134,6 @@ public sealed partial class MainForm
                 if (!smoke) ProductSettings.Change(s => s with { HealthWarningNotifications = warning.Checked, HealthRecoveryNotifications = recovery.Checked }); dialog.Close();
             }
             catch (Exception e) { MessageBox.Show(dialog, e.Message, "配置未保存"); }
-        })); dialog.Controls.Add(grid); dialog.Controls.Add(actions); dialog.ShowDialog(this);
+        })); dialog.Controls.Add(grid); dialog.Controls.Add(actions); ApplyProductTheme(dialog); return dialog;
     }
 }

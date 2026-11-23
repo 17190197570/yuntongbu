@@ -15,11 +15,11 @@ public sealed partial class MainForm
 
     private void BuildStorageConnections(TabPage page)
     {
-        var split = new SplitContainer { Width = 1100, Dock = DockStyle.Fill, SplitterDistance = 260, SplitterWidth = 16, FixedPanel = FixedPanel.Panel1 };
+        var split = new SplitContainer { Width = 1100, Dock = DockStyle.Fill, SplitterDistance = 216, SplitterWidth = 16, FixedPanel = FixedPanel.Panel1, Panel1MinSize = 180, Panel2MinSize = 530 };
         page.Controls.Add(split); split.Panel1.Controls.Add(ConnectionSidebar("我的 NAS", storages, Button("+ 新增 NAS", (_, _) => ResetStorage())));
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 1 };
         right.RowStyles.Add(new(SizeType.Absolute, 88)); right.RowStyles.Add(new(SizeType.Absolute, 304)); right.RowStyles.Add(new(SizeType.Absolute, 58)); right.RowStyles.Add(new(SizeType.Percent, 100));
-        right.Controls.Add(ConnectionHeading("NAS 连接", "先保存存储地址与账号，再到“文件夹映射”维护路径。\n带 * 的项目必填；密码首次必填，工作组可留空。"), 0, 0);
+        right.Controls.Add(ConnectionHeading("连接设置", "先保存 NAS，再到“文件夹映射”维护路径。\n带 * 为必填项；密码首次必填，工作组可留空。"), 0, 0);
         var columns = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
         columns.ColumnStyles.Add(new(SizeType.Percent, 50)); columns.ColumnStyles.Add(new(SizeType.Percent, 50));
         var network = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
@@ -38,7 +38,8 @@ public sealed partial class MainForm
                 var box = new TextBox { Dock = DockStyle.Top, AutoSize = false, Height = 32, UseSystemPasswordChar = names[field] == "密码", AccessibleName = labels[field], PlaceholderText = names[field] switch { "服务器" => "192.168.1.10 或 nas.example.com", "共享名称" => "例如 data，不含子目录", "密码" => "留空保留已保存的密码", "域/工作组" => "例如 WORKGROUP", _ => "NAS 上的登录用户名" } };
                 inputs.Add(names[field], box); editor = box;
             }
-            editor.TabIndex = field; fields.Controls.Add(editor, 0, row + 1);
+            var surface = new InputSurface(editor) { Dock = DockStyle.Top, TabIndex = field };
+            fields.Controls.Add(surface, 0, row + 1);
         }
         var networkCard = FormCard("网络与共享", network); networkCard.Margin = new(0, 0, 6, 8);
         var accountCard = FormCard("身份认证", credentials); accountCard.Margin = new(6, 0, 0, 8);
@@ -56,11 +57,11 @@ public sealed partial class MainForm
     }
     private void BuildFolderMappings(TabPage page)
     {
-        var split = new SplitContainer { Width = 1100, Dock = DockStyle.Fill, SplitterDistance = 260, SplitterWidth = 16, FixedPanel = FixedPanel.Panel1 };
+        var split = new SplitContainer { Width = 1100, Dock = DockStyle.Fill, SplitterDistance = 216, SplitterWidth = 16, FixedPanel = FixedPanel.Panel1, Panel1MinSize = 180, Panel2MinSize = 530 };
         page.Controls.Add(split); split.Panel1.Controls.Add(ConnectionSidebar("文件夹映射", connections, Button("+ 新增映射", (_, _) => Reset())));
         var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5 };
-        right.RowStyles.Add(new(SizeType.Absolute, 88)); right.RowStyles.Add(new(SizeType.Absolute, 282)); right.RowStyles.Add(new(SizeType.Absolute, 92)); right.RowStyles.Add(new(SizeType.Absolute, 54)); right.RowStyles.Add(new(SizeType.Percent, 100));
-        right.Controls.Add(ConnectionHeading("文件夹映射", "一个 NAS 可以用于多个文件夹映射，路径可在这里单独维护。\n当前已有文件保持只读；保存映射不会扫描或下载文件。"), 0, 0);
+        right.RowStyles.Add(new(SizeType.Absolute, 88)); right.RowStyles.Add(new(SizeType.Absolute, 282)); right.RowStyles.Add(new(SizeType.Absolute, 104)); right.RowStyles.Add(new(SizeType.Absolute, 54)); right.RowStyles.Add(new(SizeType.Percent, 100));
+        right.Controls.Add(ConnectionHeading("路径设置", "一个 NAS 可以用于多个文件夹映射。\n当前已有文件保持只读；保存映射不会扫描或下载文件。"), 0, 0);
         var fields = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 5 };
         fields.ColumnStyles.Add(new(SizeType.Absolute, 110)); fields.ColumnStyles.Add(new(SizeType.Percent, 100));
         Control[] editors = [mappingStorage, localFolder, remoteFolder, createFolders, auto];
@@ -73,11 +74,11 @@ public sealed partial class MainForm
             {
                 var browse = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
                 browse.ColumnStyles.Add(new(SizeType.Percent, 100)); browse.ColumnStyles.Add(new(SizeType.Absolute, 80));
-                localFolder.AutoSize = false; localFolder.Height = 32; localFolder.Dock = DockStyle.Top; browse.Controls.Add(localFolder, 0, 0);
+                localFolder.AutoSize = false; localFolder.Height = 32; localFolder.Dock = DockStyle.Top; browse.Controls.Add(new InputSurface(localFolder) { Dock = DockStyle.Top }, 0, 0);
                 var choose = Button("浏览…", (_, _) => { using var picker = new FolderBrowserDialog { Description = "选择空的本地 NTFS 文件夹或原有受管根", UseDescriptionForTitle = true }; if (picker.ShowDialog(this) == DialogResult.OK) localFolder.Text = picker.SelectedPath; });
                 choose.Margin = new(6, 0, 0, 0); browse.Controls.Add(choose, 1, 0); fields.Controls.Add(browse, 1, row);
             }
-            else { editors[row].Dock = DockStyle.Top; fields.Controls.Add(editors[row], 1, row); }
+            else { editors[row].Dock = DockStyle.Top; fields.Controls.Add(editors[row] is TextBox or ComboBox ? new InputSurface(editors[row]) { Dock = DockStyle.Top } : editors[row], 1, row); }
         }
         mappingStorage.AccessibleName = "使用 NAS"; localFolder.AccessibleName = "本地文件夹"; remoteFolder.AccessibleName = "远端文件夹";
         remoteFolder.AutoSize = false; remoteFolder.Height = 32;
@@ -121,7 +122,8 @@ public sealed partial class MainForm
         if (saved != EditedStorage() || inputs["密码"].Text.Length > 0) throw new ArgumentException("请先保存当前 NAS 参数及密码，再测试。");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var results = await runtime.Tester.TestAsync(saved.Access(), false, timeout.Token);
-        diagnostic.Text = string.Join(Environment.NewLine, results.Select(d => d.Stage + ": " + d.Kind + " — " + d.Message));
+        diagnostic.Text = (results.All(d => d.Success) ? "连接测试通过，可以配置文件夹映射。" : "连接测试未通过，请检查下方结果。") + Environment.NewLine + Environment.NewLine +
+            string.Join(Environment.NewLine + Environment.NewLine, results.Select(d => (d.Success ? "✓  " : "×  ") + d.Stage + "  ·  " + (d.Success ? "" : "[" + d.Kind + "] ") + d.Message));
         foreach (var d in results) index.Log(saved.Id, "diagnostic", d.Stage + " " + d.Kind + " " + d.Message);
     }
     private async Task DeleteStorageAsync(CancellationToken token)

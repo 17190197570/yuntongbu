@@ -10,14 +10,14 @@ public sealed partial class MainForm
     private static Control ConnectionHeading(string title, string description)
     {
         var panel = new Panel { Dock = DockStyle.Fill };
-        panel.Controls.Add(new Label { Text = description, Dock = DockStyle.Bottom, Height = 42, ForeColor = Color.FromArgb(102, 102, 102) });
-        panel.Controls.Add(new Label { Text = title, Dock = DockStyle.Top, Height = 32, Font = new("Microsoft YaHei UI", 16, FontStyle.Bold) });
+        panel.Controls.Add(new Label { Text = description, Dock = DockStyle.Bottom, Height = 42, ForeColor = Muted });
+        panel.Controls.Add(new Label { Text = title, Dock = DockStyle.Top, Height = 28, Font = new("Microsoft YaHei UI", 11, FontStyle.Bold), ForeColor = Ink });
         return panel;
     }
     private static ConnectionCard FormCard(string title, Control content)
     {
         var card = new ConnectionCard { Dock = DockStyle.Fill, Margin = new(0, 0, 0, 12) };
-        var heading = new Label { Text = title, Dock = DockStyle.Top, Height = 38, Font = new("Microsoft YaHei UI", 10, FontStyle.Bold) };
+        var heading = new Label { Text = title, Dock = DockStyle.Top, Height = 32, Font = StrongFont, ForeColor = Ink };
         content.Dock = DockStyle.Fill; card.Controls.Add(content); card.Controls.Add(heading); return card;
     }
     private static void ConfigureConnectionList(ListBox list)
@@ -60,16 +60,19 @@ public sealed partial class MainForm
     }
     private sealed class ConnectionCard : Panel
     {
-        public ConnectionCard() { DoubleBuffered = true; Padding = new(20); BackColor = Color.White; }
+        public ConnectionCard() { DoubleBuffered = true; Padding = new(20); BackColor = Color.White; SetStyle(ControlStyles.ResizeRedraw, true); }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            e.Graphics.Clear(Parent?.BackColor ?? Canvas); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var path = RoundRect(new RectangleF(0.5F, 0.5F, Width - 1, Height - 1), 8);
+            using var fill = new SolidBrush(Color.White); e.Graphics.FillPath(fill, path);
+        }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            var rectangle = new Rectangle(0, 0, Width - 1, Height - 1); const int diameter = 12;
-            if (rectangle.Width < diameter || rectangle.Height < diameter) return;
-            using var outline = new GraphicsPath();
-            outline.AddArc(rectangle.Left, rectangle.Top, diameter, diameter, 180, 90); outline.AddArc(rectangle.Right - diameter, rectangle.Top, diameter, diameter, 270, 90);
-            outline.AddArc(rectangle.Right - diameter, rectangle.Bottom - diameter, diameter, diameter, 0, 90); outline.AddArc(rectangle.Left, rectangle.Bottom - diameter, diameter, diameter, 90, 90); outline.CloseFigure();
-            using var border = new Pen(Color.FromArgb(230, 230, 230)); e.Graphics.DrawPath(border, outline);
+            if (Width < 16 || Height < 16) return;
+            using var outline = RoundRect(new RectangleF(0.5F, 0.5F, Width - 1, Height - 1), 8);
+            using var border = new Pen(Outline); e.Graphics.DrawPath(border, outline);
         }
     }
 }

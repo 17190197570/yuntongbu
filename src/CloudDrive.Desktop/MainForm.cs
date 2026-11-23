@@ -39,9 +39,9 @@ public sealed partial class MainForm : Form
         hideToTray = !smoke;
         index = new IndexStore(smoke ? Path.Combine(Path.GetTempPath(), "CloudDriveLite-ui-smoke-" + Guid.NewGuid().ToString("N"), "index.db") : ProductEnvironment.DatabasePath);
         runtime = new(index, vault);
-        Text = "CloudDrive Lite · " + ProductEnvironment.Version + " 开发版"; Width = 1180; Height = 850; MinimumSize = new(1080, 790);
-        Font = new("Microsoft YaHei UI", 10); StartPosition = FormStartPosition.CenterScreen;
-        var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new(18, 8) };
+        Text = "CloudDrive Lite · " + ProductEnvironment.Version + " 开发版"; Width = 1320; Height = 940; MinimumSize = new(1180, 850);
+        Font = BodyFont; StartPosition = FormStartPosition.CenterScreen;
+        var tabs = new PageDeck();
         var configTab = new TabPage("SMB 连接管理") { Padding = new(16) };
         var mappingTab = new TabPage("文件夹映射") { Padding = new(16) };
         var statusTab = new TabPage("存储状态") { Padding = new(16) }; statusTab.Controls.Add(status);
@@ -53,7 +53,7 @@ public sealed partial class MainForm : Form
         var homeTab = new TabPage("首页总览") { Padding = new(20) }; BuildProductHome(homeTab);
         var settingsTab = new TabPage("设置与运维") { Padding = new(20) }; BuildProductSettings(settingsTab);
         var healthTab = new TabPage("运行健康中心") { Padding = new(12) }; BuildHealthCenter(healthTab);
-        tabs.TabPages.AddRange([homeTab, configTab, mappingTab, statusTab, syncTab, cacheTab, archiveTab, logsTab, healthTab, settingsTab]); Controls.Add(tabs);
+        tabs.TabPages.AddRange([homeTab, configTab, mappingTab, statusTab, syncTab, cacheTab, archiveTab, logsTab, healthTab, settingsTab]); BuildAppShell(tabs);
         InitializeTray(tabs);
         BuildStorageConnections(configTab); BuildFolderMappings(mappingTab);
         if (showConnections) tabs.SelectedTab = configTab;
@@ -95,6 +95,7 @@ public sealed partial class MainForm : Form
                 using var settingsBitmap = new Bitmap(Width, Height); DrawToBitmap(settingsBitmap, new Rectangle(0, 0, Width, Height)); settingsBitmap.Save(Path.Combine(AppContext.BaseDirectory, "settings-smoke.png"));
                 tabs.SelectedTab = healthTab; displayedHealth = index.ReadHealth(); RenderHealth(); await Task.Delay(100);
                 using var healthBitmap = new Bitmap(Width, Height); DrawToBitmap(healthBitmap, new Rectangle(0, 0, Width, Height)); healthBitmap.Save(Path.Combine(AppContext.BaseDirectory, "health-center-smoke.png"));
+                await CaptureDesignSmokeAsync(tabs);
                 hideToTray = true; Close();
                 if (Visible || IsDisposed) throw new IOException("关闭窗口未正确隐藏；不能通过后台生命周期检查。");
                 Show(); hideToTray = false;
@@ -105,7 +106,13 @@ public sealed partial class MainForm : Form
         ApplyProductTheme(this);
         FormClosing += OnClosing;
     }
-    private static Button Button(string text, EventHandler handler) { var button = new Button { Text = text, AutoSize = true, Height = 34, Margin = new(3, 3, 5, 3) }; button.Click += handler; return button; }
+    private static Button Button(string text, EventHandler handler)
+    {
+        var button = new ModernButton { Text = text };
+        if (text is "新建归档配置" or "立即完整检查" or "保存配置" or "保存" or "保存当前连接策略") button.Tag = "primary";
+        else if (text.StartsWith("删除", StringComparison.Ordinal) || text == "安全退出程序") button.Tag = "danger";
+        button.Click += handler; return button;
+    }
     private void BuildSyncCenter(TabPage page)
     {
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, ColumnCount = 1 };
@@ -164,7 +171,7 @@ public sealed partial class MainForm : Form
         foreach (var s in index.Storages()) { storages.Items.Add(s); mappingStorage.Items.Add(s); if (s.Id == nasSelected) storages.SelectedItem = s; if (s.Id == chosen) mappingStorage.SelectedItem = s; }
         if (mappingStorage.SelectedIndex < 0 && mappingStorage.Items.Count > 0) mappingStorage.SelectedIndex = 0;
         connections.Items.Clear(); foreach (var c in index.Connections()) { connections.Items.Add(c); if (c.Id == selected) connections.SelectedItem = c; }
-        RefreshStatus();
+        UpdateHomeProfiles(); RefreshStatus();
     }
     private void RefreshStatus()
     {

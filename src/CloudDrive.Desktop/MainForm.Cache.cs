@@ -4,7 +4,7 @@ namespace CloudDrive.Desktop;
 
 public sealed partial class MainForm
 {
-    private readonly TabControl cachePages = new() { Dock = DockStyle.Fill };
+    private readonly SectionTabs cachePages = new() { Dock = DockStyle.Fill };
     private readonly Label cacheOverview = new() { Dock = DockStyle.Fill, AutoSize = false, Text = "请刷新实际状态。自动清理默认关闭；真实 NAS 尚未验收。" };
     private readonly Label cacheMessage = new() { Dock = DockStyle.Fill, ForeColor = Color.FromArgb(40, 80, 130), AutoEllipsis = true };
     private readonly TextBox cacheScope = new() { Width = 240, PlaceholderText = @"相对文件/文件夹；空白表示整个连接" };
@@ -69,22 +69,33 @@ public sealed partial class MainForm
     }
     private void BuildCachePolicies(TabPage page)
     {
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 19, AutoScroll = true };
-        layout.ColumnStyles.Add(new(SizeType.Absolute, 300)); layout.ColumnStyles.Add(new(SizeType.Percent, 100)); page.Controls.Add(layout);
-        var switches = new FlowLayoutPanel { Dock = DockStyle.Fill }; switches.Controls.AddRange([cacheEnabled, cacheAge, cacheCapacity, cacheDisk]); layout.Controls.Add(switches, 0, 0); layout.SetColumnSpan(switches, 2); layout.RowStyles.Add(new(SizeType.Absolute, 43));
+        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 1, RowCount = 4, Height = 528, Margin = Padding.Empty };
+        foreach (int height in new[] { 48, 330, 50, 100 }) layout.RowStyles.Add(new(SizeType.Absolute, height));
+        scroll.Controls.Add(layout); page.Controls.Add(scroll);
+        var switches = new FlowLayoutPanel { Dock = DockStyle.Fill }; switches.Controls.AddRange([cacheEnabled, cacheAge, cacheCapacity, cacheDisk]); layout.Controls.Add(switches, 0, 0);
+        var columns = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty };
+        columns.ColumnStyles.Add(new(SizeType.Percent, 50)); columns.ColumnStyles.Add(new(SizeType.Percent, 50));
+        var capacity = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 6 };
+        var retention = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 5 };
+        foreach (var fields in new[] { capacity, retention }) { fields.ColumnStyles.Add(new(SizeType.Percent, 60)); fields.ColumnStyles.Add(new(SizeType.Percent, 40)); }
+        var capacityCard = FormCard("容量与磁盘水位", capacity); capacityCard.Margin = new(0, 0, 6, 8);
+        var retentionCard = FormCard("访问保护与执行", retention); retentionCard.Margin = new(6, 0, 0, 8);
+        columns.Controls.Add(capacityCard, 0, 0); columns.Controls.Add(retentionCard, 1, 0); layout.Controls.Add(columns, 0, 1);
         string[] labels = ["最大缓存 GiB", "容量触发 GiB", "清理目标 GiB", "磁盘预警剩余 GiB", "磁盘触发剩余 GiB", "磁盘目标剩余 GiB", "允许清理：未访问天数", "最近访问保护天数", "优先清理天数", "高优先清理天数", "清理并发（1–4）"];
         for (int i = 0; i < labels.Length; i++)
         {
             var value = new NumericUpDown { Minimum = i == 10 ? 1 : 0, Maximum = i == 10 ? 4 : i < 6 ? 1048576 : 36500, DecimalPlaces = i < 6 ? 2 : 0, Width = 160 };
-            cacheNumbers.Add(labels[i], value); layout.RowStyles.Add(new(SizeType.Absolute, 33)); layout.Controls.Add(new Label { Text = labels[i], AutoSize = true, Anchor = AnchorStyles.Left }, 0, i + 1); layout.Controls.Add(value, 1, i + 1);
+            var fields = i < 6 ? capacity : retention; int row = i < 6 ? i : i - 6;
+            cacheNumbers.Add(labels[i], value); fields.RowStyles.Add(new(SizeType.Absolute, 41)); fields.Controls.Add(new Label { Text = labels[i], AutoSize = true, Anchor = AnchorStyles.Left }, 0, row); fields.Controls.Add(new InputSurface(value) { Dock = DockStyle.Top }, 1, row);
         }
-        layout.RowStyles.Add(new(SizeType.Absolute, 50)); layout.Controls.Add(Button("保存当前连接策略", async (_, _) => await CacheAction(_ =>
+        layout.Controls.Add(Button("保存当前连接策略", async (_, _) => await CacheAction(_ =>
         {
             long Bytes(int i) => checked((long)(cacheNumbers[labels[i]].Value * (1L << 30))); int Days(int i) => (int)cacheNumbers[labels[i]].Value;
             index.SetCachePolicy(Saved().Id, new(cacheEnabled.Checked, cacheAge.Checked, cacheCapacity.Checked, cacheDisk.Checked, Bytes(0), Bytes(1), Bytes(2), Bytes(3), Bytes(4), Bytes(5), Days(6), Days(7), Days(8), Days(9), Days(10)));
             return Task.CompletedTask;
-        })), 1, 12);
-        var note = new Label { Text = "策略作用于文件夹映射中当前选中的映射。启动连接的 Agent 后，后台策略按设置生效。\n访问不明、未同步、固定、正在使用或 NAS 不可用时保留缓存；取消固定不等于释放。\n容量采用高低水位；同一物理卷统一规划。真实 NAS 验收尚未执行。", Dock = DockStyle.Fill }; layout.Controls.Add(note, 0, 13); layout.SetColumnSpan(note, 2); layout.RowStyles.Add(new(SizeType.Absolute, 100));
+        })), 0, 2);
+        var note = new Label { Text = "策略作用于文件夹映射中当前选中的映射。启动连接的 Agent 后，后台策略按设置生效。\n访问不明、未同步、固定、正在使用或 NAS 不可用时保留缓存；取消固定不等于释放。\n容量采用高低水位；同一物理卷统一规划。真实 NAS 验收尚未执行。", Dock = DockStyle.Fill }; layout.Controls.Add(note, 0, 3);
         LoadCachePolicy(editing);
     }
     private void LoadCachePolicy(Guid connection)

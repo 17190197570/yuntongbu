@@ -30,7 +30,7 @@ public sealed partial class MainForm
         layout.Controls.Add(actions, 0, 1);
         foreach (string name in new[] { "任务", "源存储", "目标存储", "时间条件 AND", "计划", "启用", "最近执行/结果" }) archivePolicies.Columns.Add(name, name);
         layout.Controls.Add(archivePolicies, 0, 2);
-        var pages = new TabControl { Dock = DockStyle.Fill }; var preview = new TabPage("候选预览") { Padding = new(6) }; var history = new TabPage("执行中心与历史") { Padding = new(6) };
+        var pages = new SectionTabs { Dock = DockStyle.Fill }; var preview = new TabPage("候选预览") { Padding = new(6) }; var history = new TabPage("执行中心与历史") { Padding = new(6) };
         preview.Controls.Add(archivePreview); preview.Controls.Add(archivePreviewSummary);
         foreach (string name in new[] { "原始路径", "目标路径", "大小", "原创建UTC", "原修改UTC", "资格", "原因" }) archivePreview.Columns.Add(name, name);
         var execution = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 }; execution.RowStyles.Add(new(SizeType.Absolute, 45)); execution.RowStyles.Add(new(SizeType.Percent, 40)); execution.RowStyles.Add(new(SizeType.Percent, 60));
@@ -92,7 +92,7 @@ public sealed partial class MainForm
     {
         var form = new Form { Text = "归档配置 · SHA-256 与时间校验必需", Width = 800, Height = 790, MinimumSize = new(740, 660), StartPosition = FormStartPosition.CenterParent, Font = Font };
         var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new(14) }; var fields = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 }; fields.ColumnStyles.Add(new(SizeType.Absolute, 220)); fields.ColumnStyles.Add(new(SizeType.Percent, 100)); panel.Controls.Add(fields); form.Controls.Add(panel);
-        int row = 0; void Add(string label, Control input) { fields.RowStyles.Add(new(SizeType.Absolute, 34)); fields.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row); input.Anchor = AnchorStyles.Left | AnchorStyles.Right; fields.Controls.Add(input, 1, row++); }
+        int row = 0; void Add(string label, Control input) { fields.RowStyles.Add(new(SizeType.Absolute, 44)); fields.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row); Control editor = input is TextBox or ComboBox or NumericUpDown ? new InputSurface(input) : input; editor.Anchor = AnchorStyles.Left | AnchorStyles.Right; fields.Controls.Add(editor, 1, row++); }
         TextBox Text(string value) => new() { Text = value, Width = 420 };
         NumericUpDown Number(decimal value, decimal min = 1, decimal max = 36500) => new() { Minimum = min, Maximum = max, Value = value, Width = 120 };
         CheckBox Flag(bool value) => new() { Checked = value, AutoSize = true };
@@ -118,6 +118,6 @@ public sealed partial class MainForm
             }
             catch (Exception e) { MessageBox.Show(form, e.Message, "归档配置", MessageBoxButtons.OK, MessageBoxIcon.Information); }
         });
-        footer.Controls.Add(save); footer.Controls.Add(Button("取消", (_, _) => { form.DialogResult = DialogResult.Cancel; form.Close(); })); footer.Controls.Add(new Label { Text = "归档验证成功后删除源文件。使用中迁移与已有文件编辑回传暂不支持。", AutoSize = true }); form.Controls.Add(footer); return form;
+        footer.Controls.Add(save); footer.Controls.Add(Button("取消", (_, _) => { form.DialogResult = DialogResult.Cancel; form.Close(); })); footer.Controls.Add(new Label { Text = "归档验证成功后删除源文件。使用中迁移与已有文件编辑回传暂不支持。", AutoSize = true }); form.Controls.Add(footer); ApplyProductTheme(form); return form;
     }
 }

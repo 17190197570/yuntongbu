@@ -2,7 +2,10 @@
 
 Windows 原生按需云文件工具。最终路线为 **Windows CFAPI + Windows 原生 SMB Redirector + C#/.NET + C++**。
 
-2026-11-23：当前源码 **0.7.2** 修复 SMB 连接测试的 PowerShell 宿主兼容问题：
+2026-11-23：当前源码 **0.7.3** 统一十个页面的左侧导航、卡片、表单、表格及设置弹窗。
+参考 Ant Design MCP 的设计规范，保持原生 WinForms 实现，见 [界面验证](docs/UI_VALIDATION.md)。
+
+**0.7.2** 修复 SMB 连接测试的 PowerShell 宿主兼容问题：
 通过系统 Windows PowerShell 的本地 PSRP 参数通道调用 `New-SmbMapping`，不修改执行策略，
 不在命令行传递密码。已验证用户保存的真实 NAS 的认证、共享访问和目录列表读取；
 未执行文件内容读取或写入探测。见 [SMB 宿主验证](docs/SMB_HOST_VALIDATION.md)。
