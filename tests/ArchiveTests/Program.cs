@@ -89,8 +89,12 @@ Check(ArchiveSchedule.LatestDue(schedulePolicy, DateTimeOffset.Parse("2026-11-23
 Check(ArchiveSchedule.InWindow(schedulePolicy, DateTimeOffset.Parse("2026-11-23T03:59:00Z")) && !ArchiveSchedule.InWindow(schedulePolicy, DateTimeOffset.Parse("2026-11-23T04:00:00Z")), "execution window has strict ending boundary");
 Check(ArchiveSchedule.LatestDue(schedulePolicy with { ScheduleType = "Monthly", ScheduleDay = 5 }, DateTimeOffset.Parse("2026-11-02T03:00:00Z")) == DateTimeOffset.Parse("2026-10-05T02:00:00Z"), "monthly independent schedule supported");
 var scheduled = await Scenario("scheduled"); var enabled = scheduled.Policy with { Enabled = true, TimeZoneId = "UTC", WindowMinutes = 1440 }; index.SaveArchivePolicy(enabled);
-var tick = DateTimeOffset.Parse("2026-11-23T02:30:00Z"); await manager.SchedulerTickAsync(tick, CancellationToken.None); int runsBefore = index.ArchiveRuns().Count;
-await manager.SchedulerTickAsync(tick.AddMinutes(1), CancellationToken.None);
+// Policies must not catch up occurrences before their creation. Pick an occurrence after
+// the persisted creation time so this fixture remains valid on later days and in CI.
+var tick = ArchiveSchedule.LatestDue(enabled, index.ArchivePolicyCreated(enabled.Id).AddDays(8)).AddMinutes(30);
+await manager.SchedulerTickAsync(tick, CancellationToken.None); int runsBefore = index.ArchiveRuns().Count;
+var restartedScheduler = new ArchiveManager(new IndexStore(index.DatabasePath), (c, _) => Task.FromResult(roots[c.Id]), platform, new ExplicitFixtureGuard());
+await restartedScheduler.SchedulerTickAsync(tick.AddMinutes(1), CancellationToken.None);
 Check(index.ArchiveRuns().Count == runsBefore && index.StorageMapping(scheduled.Entry.Id) is not null, "persisted scheduler due key prevents repeated catchup execution");
 index.ArchivePaused = true; Check(new IndexStore(index.DatabasePath).ArchivePaused, "global archive pause persists across manager restart"); index.ArchivePaused = false;
 var paused = await Scenario("pause"); preview = await manager.PreviewAsync(paused.Policy, CancellationToken.None); Guid pausedRun = index.QueueArchive(paused.Policy, preview.Files); index.ControlArchiveRun(pausedRun, "pause"); await manager.ExecuteAsync(pausedRun, CancellationToken.None);
