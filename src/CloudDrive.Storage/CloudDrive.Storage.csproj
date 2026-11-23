@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0-windows</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations/002_sync.sql" />
+    <EmbeddedResource Include="Migrations/003_cache.sql" />
+    <EmbeddedResource Include="Migrations/004_archive.sql" />
+    <EmbeddedResource Include="Migrations/005_health.sql" />
+    <EmbeddedResource Include="Migrations/006_storage_connections.sql" />
+    <ProjectReference Include="../CloudDrive.Core/CloudDrive.Core.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.15" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.10" />
+  </ItemGroup>
+</Project>

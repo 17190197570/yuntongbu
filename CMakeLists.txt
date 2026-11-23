@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.24)
+project(CloudDriveLite LANGUAGES CXX)
+if(NOT WIN32)
+    message(FATAL_ERROR "CloudDrive Lite requires Windows and CFAPI")
+endif()
+add_subdirectory(src/CloudProviderHost)
