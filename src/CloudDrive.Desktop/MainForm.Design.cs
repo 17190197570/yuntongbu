@@ -33,6 +33,11 @@ public sealed partial class MainForm
         brand.Controls.Add(new Label { Text = "CloudDrive", Font = new("Segoe UI", 12, FontStyle.Bold), ForeColor = Ink, Bounds = new(52, 1, 110, 25) });
         brand.Controls.Add(new Label { Text = "LITE  /  云端文件空间", Font = new("Microsoft YaHei UI", 8), ForeColor = Muted, Bounds = new(52, 29, 120, 22) });
         var nav = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = Color.White, Padding = Padding.Empty };
+        nav.Layout += (_, _) =>
+        {
+            int width = Math.Max(112, nav.ClientSize.Width - 4);
+            foreach (Control child in nav.Controls) if (child.Width != width) child.Width = width;
+        };
         string[] groups = ["工作空间", "", "", "", "文件管理", "", "", "系统与维护", "", ""];
         string[] names = ["首页总览", "NAS 连接", "文件夹映射", "存储状态", "同步任务", "缓存管理", "归档管理", "任务日志", "运行健康", "设置与运维"];
         string[] descriptions = ["查看连接、任务与文件空间的当前状态。", "管理 NAS 地址、共享与登录凭据。", "让本地文件夹对应到 NAS 上的远端目录。", "查看各个映射的连接状态与索引进度。", "查看新增文件试验任务与处理进度。", "查看本地缓存、保留范围与清理策略。", "管理跨存储迁移计划与执行记录。", "查看扫描、连接、文件读取与重试记录。", "检查运行状态，查看诊断依据与恢复记录。", "管理启动、备份、日志与客户端设置。"];
@@ -93,11 +98,12 @@ public sealed partial class MainForm
                 Size = view.Size;
                 for (int i = 0; i < deck.TabPages.Count; i++)
                 {
-                    var page = deck.TabPages[i]; navigation[page].PerformClick(); await Task.Delay(60);
+                    var page = deck.TabPages[i]; var button = navigation[page];
+                    ((ScrollableControl)button.Parent!).ScrollControlIntoView(button); button.Focus(); button.PerformClick(); await Task.Delay(60);
                     if (deck.SelectedTab != page || navigation.Count(p => p.Value.Selected) != 1 || !navigation[page].Selected || pageTitle.Text != navigation[page].Text)
                         throw new IOException("侧边导航、选中状态或页面标题不一致。");
-                    if (!navigation[page].Visible || navigation[page].Bottom > navigation[page].Parent!.ClientSize.Height)
-                        throw new IOException("最小窗口未完整显示侧边导航。");
+                    if (!button.Visible || !button.Parent!.ClientRectangle.Contains(button.Bounds))
+                        throw new IOException($"导航滚动后仍被裁切：page={i}, window={Size}, dpi={DeviceDpi}, bounds={button.Bounds}, viewport={button.Parent!.ClientRectangle}。");
                     using var bitmap = new Bitmap(Width, Height); DrawToBitmap(bitmap, new Rectangle(0, 0, Width, Height));
                     bitmap.Save(Path.Combine(folder, $"{view.Name}-{i:D2}.png"));
                 }
@@ -105,6 +111,17 @@ public sealed partial class MainForm
                     if (input.Width < 90 || input.Height < 16 || input.Parent is null || input.Bottom > input.Parent.ClientSize.Height)
                         throw new IOException("窗口尺寸导致连接或映射输入控件裁切。");
             }
+            var menu = (FlowLayoutPanel)navigation.First().Value.Parent!; var maximum = menu.MaximumSize;
+            try
+            {
+                menu.MaximumSize = new(0, 300);
+                foreach (var pair in navigation)
+                {
+                    menu.ScrollControlIntoView(pair.Value); pair.Value.Focus(); pair.Value.PerformClick(); await Task.Delay(30);
+                    if (deck.SelectedTab != pair.Key || !menu.ClientRectangle.Contains(pair.Value.Bounds)) throw new IOException("紧凑侧栏滚动导航无法完整访问页面。");
+                }
+            }
+            finally { menu.MaximumSize = maximum; }
             deck.SelectedIndex = 5; Size = originalSize;
             for (int i = 0; i < cachePages.TabPages.Count; i++)
             {
@@ -118,7 +135,7 @@ public sealed partial class MainForm
             }
         }
         finally { Size = originalSize; deck.SelectedIndex = 0; }
-        File.WriteAllText(Path.Combine(folder, "result.txt"), $"PASS 10 real sidebar button navigations at normal and minimum sizes; selected state/title consistency; visible navigation; input geometry; all cache subpages. DeviceDpi={DeviceDpi}. Isolated fixture database, no user NAS accessed.");
+        File.WriteAllText(Path.Combine(folder, "result.txt"), $"PASS 10 real sidebar button navigations at normal and minimum sizes; selected state/title consistency; scroll-to-visible navigation including compact 300px sidebar; input geometry; all cache subpages. DeviceDpi={DeviceDpi}. Isolated fixture database, no user NAS accessed.");
     }
 
     private static void ApplyProductTheme(Control parent)

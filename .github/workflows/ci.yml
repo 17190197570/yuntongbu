@@ -39,18 +39,10 @@ jobs:
           Import-Module (Join-Path $vsPath 'Common7/Tools/Microsoft.VisualStudio.DevShell.dll')
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
           ./scripts/build.ps1 -Configuration Release
-      - name: Run isolated fixture checks
-        run: |
-          $validation = Join-Path $PWD 'artifacts/validation/public-ci'
-          New-Item -ItemType Directory -Path $validation -Force | Out-Null
-          $suites = @('test-unit', 'test-connections', 'test-smb-host', 'test-phase2', 'test-phase3', 'test-cache', 'test-archive', 'test-product', 'test-health')
-          foreach ($suite in $suites) {
-            & pwsh -NoProfile -File (Join-Path $PWD "scripts/$suite.ps1") 2>&1 | Tee-Object -FilePath (Join-Path $validation "$suite.log")
-            if ($LASTEXITCODE -ne 0) { throw "Fixture suite failed: $suite" }
-          }
       - name: Run desktop fixture smoke
         run: |
           $validation = Join-Path $PWD 'artifacts/validation/public-ci'
+          New-Item -ItemType Directory -Path $validation -Force | Out-Null
           & dotnet (Join-Path $PWD 'artifacts/bin/CloudDrive.Desktop.dll') --smoke 2>&1 | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke.log')
           $smokeExit = $LASTEXITCODE
           $errorFile = Join-Path $PWD 'artifacts/bin/desktop-smoke-error.txt'
@@ -60,6 +52,15 @@ jobs:
           }
           if ($smokeExit -ne 0) { throw 'Desktop fixture smoke failed.' }
           Get-Content (Join-Path $PWD 'artifacts/bin/design-smoke/result.txt') | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke.log') -Append
+      - name: Run isolated fixture checks
+        run: |
+          $validation = Join-Path $PWD 'artifacts/validation/public-ci'
+          New-Item -ItemType Directory -Path $validation -Force | Out-Null
+          $suites = @('test-unit', 'test-connections', 'test-smb-host', 'test-phase2', 'test-phase3', 'test-cache', 'test-archive', 'test-product', 'test-health')
+          foreach ($suite in $suites) {
+            & pwsh -NoProfile -File (Join-Path $PWD "scripts/$suite.ps1") 2>&1 | Tee-Object -FilePath (Join-Path $validation "$suite.log")
+            if ($LASTEXITCODE -ne 0) { throw "Fixture suite failed: $suite" }
+          }
       - name: Upload fixture validation logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
