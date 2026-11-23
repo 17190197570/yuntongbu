@@ -26,7 +26,7 @@ public sealed partial class MainForm
             card.Controls.Add(homeValues[i]); card.Controls.Add(new Label { Text = captions[i], Dock = DockStyle.Top, Height = 26, ForeColor = Muted }); metrics.Controls.Add(card, i, 0);
         }
         var shortcuts = new FlowLayoutPanel { Dock = DockStyle.Fill, Margin = Padding.Empty, Padding = new(0, 4, 0, 0) };
-        shortcuts.Controls.Add(MainAction("添加 NAS 连接", (_, _) => NavigateWorkspace(1)));
+        shortcuts.Controls.Add(MainAction("管理 NAS 连接", (_, _) => NavigateWorkspace(1)));
         shortcuts.Controls.Add(Button("管理文件夹映射", (_, _) => NavigateWorkspace(2)));
         shortcuts.Controls.Add(Button("查看运行健康", (_, _) => NavigateWorkspace(8)));
         shortcuts.Controls.Add(Button("安全退出程序", async (_, _) => await ExitProduct()));

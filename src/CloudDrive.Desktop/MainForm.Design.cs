@@ -65,6 +65,7 @@ public sealed partial class MainForm
         {
             int selected = Math.Max(deck.SelectedIndex, 0); pageTitle.Text = names[selected]; pageDescription.Text = descriptions[selected];
             foreach (var pair in navigation) { pair.Value.Selected = pair.Key == deck.SelectedTab; pair.Value.Invalidate(); }
+            if (deck.SelectedTab is { } current) nav.ScrollControlIntoView(navigation[current]);
         }
         deck.SelectedIndexChanged += (_, _) => SelectPage(); SelectPage();
     }
