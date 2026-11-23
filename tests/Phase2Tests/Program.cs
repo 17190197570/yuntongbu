@@ -64,11 +64,11 @@ try
 {
     var capabilities = await SmbMapper.CapabilitiesAsync(CancellationToken.None);
     Console.WriteLine($"SMB cmdlet capabilities: TcpPort={capabilities.TcpPort} Credential={capabilities.Credential}");
-    Check(true, "in-process SmbShare discovery");
+    Check(true, "system Windows PowerShell SmbShare discovery");
 }
 catch (StorageException e) when (e.Kind == FailureKind.SecurityPolicy)
 {
-    Console.WriteLine("BLOCKED in-process SmbShare: existing Windows execution policy prohibits CDXML modules; unchanged.");
+    Console.WriteLine("BLOCKED system Windows PowerShell SmbShare: existing execution policy prohibits the module; unchanged.");
     Check(true, "policy rejection is classified and respected");
 }
 var diagnostics = await new ConnectionTester(mapper).TestAsync(config with { Port = 1 }, false, CancellationToken.None);

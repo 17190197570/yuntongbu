@@ -43,7 +43,7 @@ jobs:
         run: |
           $validation = Join-Path $PWD 'artifacts/validation/public-ci'
           New-Item -ItemType Directory -Path $validation -Force | Out-Null
-          $suites = @('test-unit', 'test-connections', 'test-phase2', 'test-phase3', 'test-cache', 'test-archive', 'test-product', 'test-health')
+          $suites = @('test-unit', 'test-connections', 'test-smb-host', 'test-phase2', 'test-phase3', 'test-cache', 'test-archive', 'test-product', 'test-health')
           foreach ($suite in $suites) {
             & pwsh -NoProfile -File (Join-Path $PWD "scripts/$suite.ps1") 2>&1 | Tee-Object -FilePath (Join-Path $validation "$suite.log")
             if ($LASTEXITCODE -ne 0) { throw "Fixture suite failed: $suite" }

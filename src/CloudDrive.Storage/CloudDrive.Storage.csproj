@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net10.0-windows</TargetFramework></PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="SmbHostTests" />
     <EmbeddedResource Include="Migrations/002_sync.sql" />
     <EmbeddedResource Include="Migrations/003_cache.sql" />
     <EmbeddedResource Include="Migrations/004_archive.sql" />

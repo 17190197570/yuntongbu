@@ -2,6 +2,10 @@
 
 > 当前 0.7.1 已拆分 NAS 配置与文件夹映射，见 [CONNECTIONS.md](CONNECTIONS.md)。以下包含历史设计。
 
+> 0.7.2 将 SMB 命令宿主修复为系统 Windows PowerShell 5.1 的本地 PSRP Runspace。
+> 新增 15 项宿主检查，并通过用户保存的真实 NAS 的只读连接/目录列表测试。
+> 这不等于 CFAPI 文件水合、写入或完整 NAS 故障恢复已验收，见 [验证说明](SMB_HOST_VALIDATION.md)。
+
 > 第二阶段源代码已实现，当前流程和验收限制见 [PHASE2.md](PHASE2.md)。下文“尚未实现”描述第一阶段当时的状态。
 
 当前版本只用本地目录验证 CFAPI。本文约束下一阶段，不表示原型已经能够连接 NAS。SMB 必须经 Windows 原生 SMB Redirector；不以 WebDAV、SMBLibrary 或对用户直接暴露的映射盘替代云文件根。

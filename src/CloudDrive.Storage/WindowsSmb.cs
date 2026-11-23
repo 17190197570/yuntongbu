@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
@@ -10,7 +9,8 @@ using System.Text.RegularExpressions;
 
 namespace CloudDrive.Storage;
 
-// All cmdlets use parameter binding inside this process. No script interpolation or child shell command line.
+// All cmdlets use typed PSRP parameter binding to the system Windows PowerShell host.
+// No script interpolation or secrets on a child process command line.
 public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
@@ -25,29 +25,25 @@ public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
     {
         var lease = index.Lease(config.Id);
         if (lease is null || lease.Value.Session != Session || !lease.Value.Remote.Equals(config.RemoteShare, StringComparison.OrdinalIgnoreCase)) return false;
-        using var runspace = RunspaceFactory.CreateRunspace(SystemPolicyState()); runspace.Open();
-        using var ps = PowerShell.Create(); ps.Runspace = runspace;
+        using var session = await WindowsSmbSession.OpenAsync(token);
+        using var ps = PowerShell.Create(); ps.Runspace = session.Runspace;
         await Invoke(ps, "Import-Module", [("Name", Module)], token);
         var mappings = await Invoke(ps, "Get-SmbMapping", [], token);
         return mappings.Any(m => Eq(m, "LocalPath", lease.Value.Local) && Eq(m, "RemotePath", lease.Value.Remote));
     }
     public static bool Elevated => new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
     private static string Module => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "Modules", "SmbShare", "SmbShare.psd1");
-    private static InitialSessionState SystemPolicyState()
-    {
-        var state = InitialSessionState.CreateDefault2();
-        // Undefined asks PowerShell to resolve existing policy scopes; no process policy override.
-        state.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Undefined;
-        return state;
-    }
+    internal static bool HasParameter(PSObject command, string name)
+        => command.Properties["Parameters"]?.Value is { } value &&
+            PSObject.AsPSObject(value).BaseObject is System.Collections.IDictionary parameters && parameters.Contains(name);
     public static async Task<(bool TcpPort, bool Credential)> CapabilitiesAsync(CancellationToken token)
     {
-        using var runspace = RunspaceFactory.CreateRunspace(SystemPolicyState()); runspace.Open();
-        using var ps = PowerShell.Create(); ps.Runspace = runspace;
+        using var session = await WindowsSmbSession.OpenAsync(token);
+        using var ps = PowerShell.Create(); ps.Runspace = session.Runspace;
         await Invoke(ps, "Import-Module", [("Name", Module)], token);
         var command = await Invoke(ps, "Get-Command", [("Name", "New-SmbMapping")], token);
-        var info = (CommandInfo)command.Single().BaseObject;
-        return (info.Parameters.ContainsKey("TcpPort"), info.Parameters.ContainsKey("Credential"));
+        var info = command.Single();
+        return (HasParameter(info, "TcpPort"), HasParameter(info, "Credential"));
     }
     public async Task<string> ConnectAsync(SmbConnection config, CancellationToken token)
     {
@@ -57,14 +53,14 @@ public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
         await gate.WaitAsync(token);
         try
         {
-            using var runspace = RunspaceFactory.CreateRunspace(SystemPolicyState()); runspace.Open();
-            using var ps = PowerShell.Create(); ps.Runspace = runspace;
+            using var session = await WindowsSmbSession.OpenAsync(token);
+            using var ps = PowerShell.Create(); ps.Runspace = session.Runspace;
             await Invoke(ps, "Import-Module", [("Name", Module)], token);
             var command = await Invoke(ps, "Get-Command", [("Name", "New-SmbMapping")], token);
-            var info = (CommandInfo)command.Single().BaseObject;
+            var info = command.Single();
             if (config.Port != 445)
             {
-                if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 26100) || !info.Parameters.ContainsKey("TcpPort"))
+                if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 26100) || !HasParameter(info, "TcpPort"))
                     throw new StorageException(FailureKind.PortUnsupported, "Unsupported custom port.");
                 if (!Elevated) throw new StorageException(FailureKind.ElevationRequired, "Elevation required.");
             }
@@ -83,7 +79,7 @@ public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
             if (local is null) throw new IOException("没有可分配的独立 SMB 盘符。");
             using var secret = vault.Read(config.CredentialKey);
             var parameters = new List<(string, object?)> { ("LocalPath", local), ("RemotePath", config.RemoteShare), ("Persistent", false), ("SaveCredentials", false) };
-            if (info.Parameters.ContainsKey("Credential")) parameters.Add(("Credential", new PSCredential(config.Account, secret)));
+            if (HasParameter(info, "Credential")) parameters.Add(("Credential", new PSCredential(config.Account, secret)));
             else { parameters.Add(("UserName", config.Account)); parameters.Add(("Password", new NetworkCredential("", secret).Password)); }
             if (config.Port != 445) parameters.Add(("TcpPort", (ushort)config.Port));
             // Only a confirmed successful creation confers ownership. An unjournaled orphan after a
@@ -104,8 +100,8 @@ public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
         {
             var lease = index.Lease(config.Id);
             if (lease is null || lease.Value.Session != Session) return;
-            using var runspace = RunspaceFactory.CreateRunspace(SystemPolicyState()); runspace.Open();
-            using var ps = PowerShell.Create(); ps.Runspace = runspace;
+            using var session = await WindowsSmbSession.OpenAsync(token);
+            using var ps = PowerShell.Create(); ps.Runspace = session.Runspace;
             await Invoke(ps, "Import-Module", [("Name", Module)], token);
             var mappings = await Invoke(ps, "Get-SmbMapping", [], token);
             if (mappings.Any(m => Eq(m, "LocalPath", lease.Value.Local) && Eq(m, "RemotePath", lease.Value.Remote)))
@@ -114,8 +110,9 @@ public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
         }
         finally { gate.Release(); }
     }
-    private static async Task<System.Collections.ObjectModel.Collection<PSObject>> Invoke(PowerShell ps, string command, IEnumerable<(string, object?)> parameters, CancellationToken token)
+    internal static async Task<System.Collections.ObjectModel.Collection<PSObject>> Invoke(PowerShell ps, string command, IEnumerable<(string, object?)> parameters, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         ps.Commands.Clear(); ps.Streams.Error.Clear(); ps.AddCommand(command);
         foreach (var (name, value) in parameters) ps.AddParameter(name, value);
         ps.AddParameter("ErrorAction", ActionPreference.Stop);
@@ -129,7 +126,9 @@ public sealed class SmbMapper(IndexStore index, ICredentialVault vault)
         {
             token.ThrowIfCancellationRequested();
             if (command is "Import-Module" or "Get-Command")
-                throw new StorageException(error.ToString().Contains("PSSecurityException", StringComparison.Ordinal) || error.Message.Contains("running scripts is disabled", StringComparison.Ordinal)
+                throw new StorageException(error.ToString().Contains("PSSecurityException", StringComparison.Ordinal) ||
+                    error.Message.Contains("running scripts is disabled", StringComparison.Ordinal) ||
+                    ps.Streams.Error.Any(e => e.CategoryInfo.Category == ErrorCategory.SecurityError)
                     ? FailureKind.SecurityPolicy : FailureKind.Unknown, "System SmbShare module loading was rejected.");
             var text = error.ToString() + " " + string.Join(" ", ps.Streams.Error.Select(e => e.ToString()));
             var code = error.HResult & 0xFFFF;

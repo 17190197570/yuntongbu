@@ -31,13 +31,13 @@ $agent = Join-Path $PWD 'artifacts\bin\CloudDrive.Agent.dll'
 ## SMB 与凭据边界
 
 - `CredentialVault` 使用 Windows Credential Manager 泛型凭据，按连接 GUID 命名。SQLite 位于 `%LOCALAPPDATA%\CloudDriveLite\index.db`，仅保存配置和凭据引用，不存密码。
-- `SmbMapper` 在当前进程内创建 PowerShell Runspace，通过 `AddCommand/AddParameter` 调用系统 `New-SmbMapping`，没有拼接脚本或密码命令行。
+- `SmbMapper` 从 0.7.2 起通过系统 Windows PowerShell 5.1 的本地 PSRP Runspace，使用 `AddCommand/AddParameter` 调用系统 `New-SmbMapping`。宿主固定为 System32 下的系统程序，与当前 Agent 使用相同用户令牌/登录会话；无脚本拼接、密码命令行或额外提权。
 - 优先绑定 `PSCredential`；旧系统缺少 `Credential` 参数时，按系统 API 约束短暂转换为 `Password` 字符串。不得把此兼容边界描述为完全没有内存明文。参数集合和管线及时清理；异常记录只输出分类和状态码。
 - 使用独立可用盘符作为内部读取路径，`Persistent=false`、`SaveCredentials=false`。最终呈现仍是本地 CFAPI 同步根。UNC 不含端口。
 - 仅在映射创建成功后记录租约，绑定用户 SID、令牌 AuthenticationId、盘符、共享。删除前验证租约与实时映射一致，不枚举清除服务器会话或全局映射。成功建映射与写入租约之间若崩溃，宁可保留孤立映射，也不认领或删除无法证明归属的映射。
 - Windows 同一服务器多账号限制仍存在，1219 被单独诊断；本软件不会断开其他程序连接，也不会通过别名绕过 Windows 凭据隔离。
 - 自定义 TCP 端口检查 Windows Build 26100+ 与真实 `New-SmbMapping.TcpPort` 参数。仅该功能需要 UAC。界面以 `runas` 启动同一用户的专用 Agent；启动后核验 SID。映射、扫描、SMB 读取和 Host 均由该 Agent 管理，不假定普通令牌能看见提权映射。没有关闭签名、加密、NTLM 策略或证书校验。
-- Runspace 遵循 PowerShell 的有效执行策略。不设置 Bypass、Unrestricted 或修改系统策略；系统若阻止加载 SmbShare CDXML 模块，显示 `SecurityPolicy`。这需要部署环境的受信任策略/签名流程解决。
+- Runspace 遵循系统 Windows PowerShell 的有效执行策略。不设置 Bypass、Unrestricted 或修改任何策略作用域。0.7.1 的内嵌 PS Core 配置上下文导致系统模块加载失败，0.7.2 修复为使用该模块配套的原生宿主；如果系统宿主仍被实际策略阻止，继续报告 `SecurityPolicy`，不切换执行策略或删除文件的区域标记。见 [本次验证](SMB_HOST_VALIDATION.md)。
 
 ## 诊断
 

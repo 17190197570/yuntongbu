@@ -21,6 +21,7 @@ function Check([string]$Name, [scriptblock]$Action) {
 Check 'build-release' { & (Join-Path $PSScriptRoot 'build.ps1') -Configuration Release }
 Check 'unit' { & (Join-Path $PSScriptRoot 'test-unit.ps1') }
 Check 'connection-mappings' { & (Join-Path $PSScriptRoot 'test-connections.ps1') }
+Check 'smb-native-host' { & (Join-Path $PSScriptRoot 'test-smb-host.ps1') }
 Check 'phase2' { & (Join-Path $PSScriptRoot 'test-phase2.ps1') }
 Check 'phase3-new-upload' { & (Join-Path $PSScriptRoot 'test-phase3.ps1') -Cfapi }
 Check 'phase4-cache' { & (Join-Path $PSScriptRoot 'test-cache.ps1') -Cfapi }
@@ -43,7 +44,7 @@ Check 'script-syntax' {
     & python -m py_compile (Join-Path $projectRoot 'tests\IntegrationTests\test_cfapi.py')
 }
 $results | Tee-Object -FilePath (Join-Path $validation 'summary.txt')
-"Actual NAS tests: NOT RUN (no NAS configuration or credentials supplied)." | Tee-Object -FilePath (Join-Path $validation 'summary.txt') -Append
+"Actual NAS tests: NOT RUN by this suite. Use the explicit NAS harnesses separately; no saved user NAS is contacted automatically." | Tee-Object -FilePath (Join-Path $validation 'summary.txt') -Append
 if ($failures.Count) {
     "FAILED/BLOCKED: $($failures -join ', ')" | Tee-Object -FilePath (Join-Path $validation 'summary.txt') -Append
     throw "部分自动化检查失败或被系统策略阻止。见 $validation。"
