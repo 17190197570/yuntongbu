@@ -52,8 +52,13 @@ jobs:
         run: |
           $validation = Join-Path $PWD 'artifacts/validation/public-ci'
           & dotnet (Join-Path $PWD 'artifacts/bin/CloudDrive.Desktop.dll') --smoke 2>&1 | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke.log')
-          if ($LASTEXITCODE -ne 0) { throw 'Desktop fixture smoke failed.' }
-          if (Test-Path (Join-Path $PWD 'artifacts/bin/desktop-smoke-error.txt')) { throw 'Desktop fixture smoke reported an error.' }
+          $smokeExit = $LASTEXITCODE
+          $errorFile = Join-Path $PWD 'artifacts/bin/desktop-smoke-error.txt'
+          if (Test-Path $errorFile) {
+            Get-Content $errorFile | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke-error.log')
+            throw 'Desktop fixture smoke reported an error.'
+          }
+          if ($smokeExit -ne 0) { throw 'Desktop fixture smoke failed.' }
           Get-Content (Join-Path $PWD 'artifacts/bin/design-smoke/result.txt') | Tee-Object -FilePath (Join-Path $validation 'desktop-smoke.log') -Append
       - name: Upload fixture validation logs
         if: always()
